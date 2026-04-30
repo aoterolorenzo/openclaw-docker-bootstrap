@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OpenClaw classroom bootstrap.
+# OpenClaw Docker Bootstrap.
 # Idempotent — safe to re-run. Each step is a no-op if already done.
 set -euo pipefail
 

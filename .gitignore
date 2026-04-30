@@ -2,7 +2,7 @@
 .env
 
 # OpenClaw runtime state — created on first run, contains config + tokens +
-# agent state. Each student's instance is independent.
+# agent state.
 config/
 openclaw-workspace/
 

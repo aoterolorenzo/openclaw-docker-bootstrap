@@ -1,7 +1,7 @@
-# OpenClaw Classroom
+# OpenClaw Docker Bootstrap
 
-A reproducible, secured Docker setup of [OpenClaw](https://openclaw.ai) for
-teaching. Clone, run one script, get a working agent runtime with all skill
+A reproducible, secured Docker setup of [OpenClaw](https://openclaw.ai).
+Clone, run one script, get a working agent runtime with all skill
 dependencies pre-installed and the runtime state laid out as plain files on
 your filesystem so you can poke at everything.
 
@@ -18,8 +18,8 @@ to install on the host.
 ## Quick start
 
 ```bash
-git clone <this-repo-url> openclaw-classroom
-cd openclaw-classroom
+git clone https://github.com/aoterolorenzo/openclaw-docker-bootstrap.git
+cd openclaw-docker-bootstrap
 ./setup.sh
 ```
 
@@ -59,11 +59,11 @@ docker compose run --rm openclaw-cli devices approve <request-id>
 After `setup.sh` finishes, your project directory looks like:
 
 ```
-openclaw-classroom/
+openclaw-docker-bootstrap/
 ├── README.md                    this file
 ├── setup.sh                     the bootstrap script
 ├── docker-compose.yml           upstream verbatim — do not edit
-├── docker-compose.override.yml  classroom-specific tweaks
+├── docker-compose.override.yml  local tweaks
 ├── Dockerfile                   image with skill deps + brew shim
 ├── resolv.conf                  custom DNS resolvers (1.1.1.1 / 8.8.8.8)
 ├── .env.example                 template you copy from
@@ -141,7 +141,7 @@ it persists, check the key with `docker compose logs openclaw-gateway | grep -iE
 
 ### `EAI_AGAIN` from npm during onboarding
 
-The classroom override mounts `resolv.conf` with public resolvers
+The override mounts `resolv.conf` with public resolvers
 (`1.1.1.1`, `8.8.8.8`) into both services to avoid this. If it still
 hits, restart Docker Desktop and re-run `setup.sh` (it is idempotent).
 
@@ -151,7 +151,7 @@ This is a known upstream limitation: the skills installer hardcodes a
 `brew` lookup with no native-package-manager fallback (see openclaw issues
 [#57555](https://github.com/openclaw/openclaw/issues/57555),
 [#73955](https://github.com/openclaw/openclaw/pull/73955),
-[#69002](https://github.com/openclaw/openclaw/pull/69002)). The classroom
+[#69002](https://github.com/openclaw/openclaw/pull/69002)). This repo's
 Dockerfile installs the actual binaries (`tmux`, `ffmpeg`) via `apt` and
 ships a `brew` shim that returns success, so the skills work even though
 the upstream installer takes the brew path. The one exception is
@@ -215,5 +215,5 @@ named volume so the next `doctor --fix` repopulates it cleanly.
 | Brew shim        | `/usr/local/bin/brew` returning `0` for `install`            |
 
 This makes the upstream onboarding wizard succeed end-to-end on Linux
-without students having to install Homebrew inside the container or fight
-the brew-centric skills installer.
+without having to install Homebrew inside the container or fight the
+brew-centric skills installer.
