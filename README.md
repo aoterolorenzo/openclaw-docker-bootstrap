@@ -181,17 +181,26 @@ docker compose restart openclaw-gateway
 - All API keys you enter live in `config/openclaw.json` and
   `config/credentials/`, both gitignored.
 
-## Updating the upstream compose
-
-The `docker-compose.yml` is identical to the file in the OpenClaw repo on
-GitHub. To pull the latest version without losing your local tweaks:
+## Updating
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/openclaw/openclaw/main/docker-compose.yml \
-    -o docker-compose.yml
+./update.sh
 ```
 
-Your `docker-compose.override.yml` and `Dockerfile` are unaffected.
+`update.sh` refreshes everything from upstream in one shot:
+
+1. Re-fetches `docker-compose.yml` from `openclaw/openclaw` main.
+2. `docker compose build --pull` to re-pull the `alpine/openclaw` base image
+   from Docker Hub and rebuild the derived `openclaw-with-deps:local` image
+   on top of it.
+3. `docker compose up -d --force-recreate openclaw-gateway` so the running
+   container moves to the new image.
+4. Waits for `/healthz` and prints the version that is now running.
+
+Your `docker-compose.override.yml`, `Dockerfile`, `.env`, `config/`, and
+`openclaw-workspace/` are left untouched. If the upstream upgrade adds new
+bundled plugin runtime deps, run `docker compose run --rm openclaw-cli doctor --fix`
+afterwards.
 
 ## Resetting / starting over
 
