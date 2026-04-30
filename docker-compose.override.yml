@@ -1,0 +1,30 @@
+# Local overrides on top of the upstream-verbatim docker-compose.yml.
+# Compose merges this file automatically when it sits next to docker-compose.yml.
+#
+# - Pins both services to a derived image built from ./Dockerfile so apt/uv/npm
+#   skill deps survive container recreation.
+# - Mounts ./resolv.conf as /etc/resolv.conf in both services to bypass Docker
+#   Desktop's flaky internal resolver (192.168.65.7) that produces EAI_AGAIN
+#   during onboarding. The `dns:` directive is forbidden on the cli because of
+#   network_mode, hence the volume-mount approach instead.
+# - Disables IPv6 in the gateway's network namespace (cli inherits via
+#   network_mode) to avoid AAAA-first lookups failing on missing v6 routing.
+
+services:
+  openclaw-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${OPENCLAW_IMAGE:-openclaw-with-deps:local}
+    volumes:
+      - ./resolv.conf:/etc/resolv.conf:ro
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: "1"
+
+  openclaw-cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ${OPENCLAW_IMAGE:-openclaw-with-deps:local}
+    volumes:
+      - ./resolv.conf:/etc/resolv.conf:ro

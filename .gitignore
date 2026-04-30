@@ -1,0 +1,10 @@
+# Local environment with secrets — never commit
+.env
+
+# OpenClaw runtime state — created on first run, contains config + tokens +
+# agent state. Each student's instance is independent.
+config/
+openclaw-workspace/
+
+# macOS noise
+.DS_Store
