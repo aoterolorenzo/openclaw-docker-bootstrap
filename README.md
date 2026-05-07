@@ -58,8 +58,9 @@ docker compose run --rm openclaw-cli devices approve <request-id>
 
 If you would rather have an agent (Claude Code, Cursor, Claude Desktop with
 shell access, etc.) drive the install for you, paste the prompt below into
-it. The agent must be able to run shell commands; it will pause and ask
-you for the API key when the wizard prompts for one.
+it. The agent does the non-interactive prep; you run the wizard yourself
+in your own terminal so the wizard talks to you directly (and your API
+key never passes through the agent's chat).
 
 ### What you need first
 
@@ -77,56 +78,96 @@ you for the API key when the wizard prompts for one.
 Paste this verbatim into your AI agent and send. Replace nothing.
 
 ````markdown
-You are setting up OpenClaw locally for me on this machine, using a pre-built Docker bootstrap repo. Follow the steps below in order. Do not improvise. Ask me whenever a step needs input I have not given.
+You are setting up OpenClaw locally for me on this machine, using a pre-built Docker bootstrap repo. We work in three phases: you do the non-interactive prep (phase 1), I run the interactive onboarding wizard in my own terminal (phase 2), and you finalize and verify (phase 3). Don't improvise; ask me whenever a step needs input I haven't given.
 
 REPO
 https://github.com/aoterolorenzo/openclaw-docker-bootstrap
 
-WHAT TO DO
+GROUND RULES
+- You cannot drive an interactive wizard. Your shell tool runs one-shot commands and returns their output; it does not keep a stdin/TTY pipe open across turns. The OpenClaw onboarding wizard at the heart of this setup is interactive (clack-style prompts on /dev/tty) and will hang if you try to run it through your tool. Phase 2 is mine — you print the exact command, I run it.
+- Never paste, log, or store my API key. I'll enter it directly into the wizard in my own terminal. If anything you read on disk after onboarding contains the key (e.g. `config/agents/main/agent/auth-profiles.json`), redact it before quoting it back to me.
+- Don't modify `docker-compose.yml`, `docker-compose.override.yml`, `Dockerfile`, `setup.sh`, or `update.sh` in the repo. The override and Dockerfile carry deliberate fixes against known upstream bugs.
+- Don't commit anything to git. The repo's `.gitignore` already excludes `.env`, `config/`, and `openclaw-workspace/`.
+- Don't run aggressive repair flags (`--force`, `--generate-gateway-token`) without asking.
+- If a step fails, paste the verbatim error and ask before retrying. Do not loop.
 
-1. Verify Docker is running:
-   - Run `docker info`. If it errors, stop and tell me to start Docker Desktop, then wait for me to confirm.
+PHASE 1 — your turn (non-interactive prep)
 
-2. Clone and enter the repo somewhere sensible (default to `~/openclaw` unless I say otherwise):
+1. Confirm Docker is running. Run `docker info >/dev/null 2>&1`; if it errors, stop and tell me to start Docker Desktop, then wait for my confirmation.
+
+2. Clone the repo to `~/openclaw` (ask me first if you'd rather use a different path):
        git clone https://github.com/aoterolorenzo/openclaw-docker-bootstrap.git ~/openclaw
+
+3. From `~/openclaw`, bootstrap `.env` and generate a unique gateway token (idempotent — re-running is safe):
        cd ~/openclaw
+       cp -n .env.example .env
+       grep -qE '^OPENCLAW_GATEWAY_TOKEN=$' .env && {
+           tok=$(openssl rand -hex 32)
+           awk -v t="$tok" '/^OPENCLAW_GATEWAY_TOKEN=$/{print "OPENCLAW_GATEWAY_TOKEN=" t; next}{print}' .env > .env.tmp && mv .env.tmp .env
+       }
 
-3. Run `./setup.sh`. The script is interactive. When the OpenClaw onboarding wizard prompts you, handle it as follows:
-   - "Provider" / "Choose a model provider": ask me which LLM provider I have an API key for (OpenAI / Anthropic / Gemini / etc.) and pass that through.
-   - "API key": ask me to paste it. Do NOT echo, log, or save the key anywhere outside the wizard prompt. Do not include it in your replies to me.
-   - "Default model" / "Primary model": choose a low-cost tier — `openai/gpt-5.4-mini`, `anthropic/claude-haiku-*`, `gemini/*-flash`, or the equivalent. Do NOT pick `gpt-5.5`, `claude-opus`, `gpt-5.5-pro`, or anything in the flagship tier. The repo's default is `gpt-5.5`, which combined with an upstream bug (an embedded heartbeat agent that fires every 30 min regardless of `HEARTBEAT.md` being empty) has been observed burning ~$28 in 5 days of idle running.
-   - "Configure skills now?": Yes. The Dockerfile in this repo pre-installs the deps the upstream Linux skills installer expects from Homebrew (`tmux`, `ffmpeg`, `uv`, `mcporter`, `clawhub`, `@steipete/summarize`) plus a brew shim, so the wizard succeeds end-to-end on Linux/Docker despite known upstream bugs (openclaw issues #57555, #73955, #69002).
-   - "Hatch in Terminal" / "Start TUI" / "Wake up, my friend!" / any prompt to launch an agent session at the end of the wizard: choose **SKIP** / **No**. That step persists a session that the embedded scheduler then fires every 30 min — same root cause as the budget burn above.
-   - Anything else not listed: ask me.
+4. Build the derived Docker image. This is the slow step (~3 min the first time, cached afterwards):
+       docker compose build openclaw-gateway
 
-4. After `./setup.sh` finishes, it prints a banner with a URL of the form:
-       http://127.0.0.1:18789/#token=<token>
-   Show me that exact URL on its own line.
+5. Print the handoff below VERBATIM and STOP. Don't run anything else until I come back and say I'm done.
 
-5. Tell me to open it in my browser. If I report `device pairing required (requestId: <id>)`, run:
+       ── PHASE 2 IS YOURS ─────────────────────────────────────────────
+       Open a terminal and run:
+   
+           cd ~/openclaw
+           docker compose run --rm openclaw-cli onboard --mode local --no-install-daemon
+   
+       Wizard guidance:
+       - Provider: pick the one you have an API key for.
+       - API key: paste it INTO THE WIZARD. Don't paste it into the AI chat.
+       - Default / primary model: pick the cheapest tier the wizard offers.
+         Hints: words like "mini", "haiku", "flash", "nano", "lite", "8b"
+         usually mean cheap. Avoid "opus", "pro", "flagship", "ultra", or
+         anything sold as the "most capable" model. The wizard's stored
+         default before you change it has been observed at the most
+         expensive tier — combined with an upstream heartbeat bug it can
+         burn ~$28 in 5 days of idle running.
+       - Configure skills now?: Yes. The Dockerfile pre-installs every
+         dep the upstream Linux skills installer expects from Homebrew
+         (tmux, ffmpeg, uv, mcporter, clawhub, @steipete/summarize) plus
+         a brew shim — known upstream bugs are openclaw#57555, #73955,
+         #69002.
+       - "Hatch in Terminal" / "Start TUI" / "Wake up, my friend!" at the
+         end of the wizard: SKIP / NO. That step persists a recurring
+         session that the heartbeat scheduler then fires every 30 min.
+   
+       When the wizard prints "Onboarding complete", come back here and
+       tell me "done".
+       ────────────────────────────────────────────────────────────────
+
+PHASE 3 — your turn again, after I confirm
+
+6. Repair bundled plugin runtime deps non-interactively (safe migrations only):
+       docker compose run --rm openclaw-cli doctor --fix --non-interactive
+   It may report nothing, or pull a few deps. Either is fine.
+
+7. Recreate the gateway with the fresh config and wait for /healthz:
+       docker compose up -d --force-recreate openclaw-gateway
+       for _ in $(seq 1 30); do
+           curl -fsS -o /dev/null http://127.0.0.1:18789/healthz && break
+           sleep 1
+       done
+
+8. Read the token from `.env` and print my auto-login URL on its own line:
+       echo "http://127.0.0.1:18789/#token=$(grep '^OPENCLAW_GATEWAY_TOKEN=' .env | cut -d= -f2-)"
+
+9. Tell me to open that URL. If I report `device pairing required (requestId: <id>)`, run:
        docker compose run --rm openclaw-cli devices list
        docker compose run --rm openclaw-cli devices approve <id>
-   Then tell me to refresh the browser.
-
-6. Once it works, report:
-   - the URL with the token,
-   - the model that was selected,
-   - the on-disk paths I can edit with any editor:
-       ./config/openclaw.json          main gateway config
-       ./openclaw-workspace/skills/    installed skills (markdown manifests, editable)
-       ./openclaw-workspace/agents/    agent identity, memory, transcripts
-   - this exact reminder, verbatim:
-       "Run `docker compose down` from ~/openclaw when you're not actively using OpenClaw. The gateway runs an embedded agent that calls the LLM every 30 minutes while it is up — leaving it idle for days will burn your API budget on a real key."
-
-CONSTRAINTS
-- Do not modify `docker-compose.yml`, `docker-compose.override.yml`, `Dockerfile`, or `setup.sh`. They are upstream-aligned; the override and Dockerfile carry deliberate fixes.
-- Do not commit anything to git. The repo's `.gitignore` already excludes `.env`, `config/`, and `openclaw-workspace/`; do not override it.
-- Do not run `openclaw doctor --fix --force`, `--generate-gateway-token`, or any aggressive repair flag without asking me first.
-- If any step fails, paste the verbatim error and ask me before retrying. Do not loop on a failing command.
-- If the wizard appears to hang at "Wake up, my friend!" with `LLM request failed: network connection error`, that is the known transient DNS / health-not-ready issue — wait 60 seconds and retry once. If it persists, stop and tell me.
+   then tell me to refresh.
 
 WHEN DONE
-Reply with a single short paragraph: URL, model, the four editable paths, and the `docker compose down` reminder. Nothing else.
+Reply with one short paragraph containing:
+- the URL on its own line,
+- the model I picked (ask me if you don't already know — don't infer from disk),
+- the editable on-disk paths (./config/openclaw.json, ./openclaw-workspace/skills/, ./openclaw-workspace/agents/),
+- this verbatim reminder:
+      "Run `docker compose down` from ~/openclaw when not actively using it. The gateway has an embedded agent that calls the LLM every 30 min while up — leaving it idle for days will burn your budget on a real key."
 ````
 
 ## What lives where
