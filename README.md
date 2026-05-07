@@ -112,7 +112,19 @@ PHASE 1 — your turn (non-interactive prep)
 5. Print the handoff below VERBATIM and STOP. Don't run anything else until I come back and say I'm done.
 
        ── PHASE 2 IS YOURS ─────────────────────────────────────────────
-       Open a terminal and run:
+       Open a terminal app on your machine:
+   
+       - macOS:    Press Cmd+Space, type "Terminal", press Enter. (Or
+                   use iTerm2 / Warp if you have one.)
+       - Linux:    Press Ctrl+Alt+T, or open "Terminal" / "Konsole" /
+                   "GNOME Terminal" from your app launcher.
+       - Windows:  Open Windows Terminal or PowerShell from the Start
+                   menu. If Docker Desktop is configured with the WSL 2
+                   backend (recommended), open your WSL distribution
+                   (e.g. "Ubuntu") from the Start menu instead — the
+                   commands below assume a Unix-style shell.
+   
+       Then in that terminal, run:
    
            cd ~/openclaw
            docker compose run --rm openclaw-cli onboard --mode local --no-install-daemon
@@ -120,24 +132,22 @@ PHASE 1 — your turn (non-interactive prep)
        Wizard guidance:
        - Provider: pick the one you have an API key for.
        - API key: paste it INTO THE WIZARD. Don't paste it into the AI chat.
-       - Default / primary model: pick the cheapest tier the wizard offers.
-         Hints: words like "mini", "haiku", "flash", "nano", "lite", "8b"
-         usually mean cheap. Avoid "opus", "pro", "flagship", "ultra", or
-         anything sold as the "most capable" model. The wizard's stored
-         default before you change it has been observed at the most
-         expensive tier — combined with an upstream heartbeat bug it can
-         burn ~$28 in 5 days of idle running.
+       - Default / primary model: pick a low-cost tier — OpenClaw will
+         keep calling this model continuously while the gateway is up,
+         so the tier you pick directly drives your monthly bill. Words
+         like "mini", "haiku", "flash", "nano", "lite", "8b" usually
+         mean cheap. Avoid "opus", "pro", "flagship", "ultra", or
+         anything sold as "most capable".
        - Configure skills now?: Yes. The Dockerfile pre-installs every
          dep the upstream Linux skills installer expects from Homebrew
          (tmux, ffmpeg, uv, mcporter, clawhub, @steipete/summarize) plus
          a brew shim — known upstream bugs are openclaw#57555, #73955,
          #69002.
-       - "Hatch in Terminal" / "Start TUI" / "Wake up, my friend!" at the
-         end of the wizard: SKIP / NO. That step persists a recurring
-         session that the heartbeat scheduler then fires every 30 min.
+       - Anything else the wizard asks: your call.
    
-       When the wizard prints "Onboarding complete", come back here and
-       tell me "done".
+       When the wizard prints "Onboarding complete" (and you've exited
+       any TUI it may have launched at the end with Ctrl+C), come back
+       here and tell me "done".
        ────────────────────────────────────────────────────────────────
 
 PHASE 3 — your turn again, after I confirm
@@ -156,18 +166,24 @@ PHASE 3 — your turn again, after I confirm
 8. Read the token from `.env` and print my auto-login URL on its own line:
        echo "http://127.0.0.1:18789/#token=$(grep '^OPENCLAW_GATEWAY_TOKEN=' .env | cut -d= -f2-)"
 
-9. Tell me to open that URL. If I report `device pairing required (requestId: <id>)`, run:
-       docker compose run --rm openclaw-cli devices list
-       docker compose run --rm openclaw-cli devices approve <id>
-   then tell me to refresh.
+9. Tell me to open that URL. Then print this exact block VERBATIM so I have a self-contained recipe in case I hit a pairing prompt later (the gateway asks every new browser/device to be approved once before it can talk to it):
+
+       ── If your browser shows "device pairing required (requestId: <id>)" ──
+       
+       Option A — ask me to do it: paste the requestId in this AI chat
+       and I'll run the approval for you.
+       
+       Option B — do it yourself: open a terminal, then:
+       
+           cd ~/openclaw
+           docker compose run --rm openclaw-cli devices list      # shows pending requests
+           docker compose run --rm openclaw-cli devices approve <id>
+       
+       Refresh the browser tab afterwards.
+       ─────────────────────────────────────────────────────────────────────
 
 WHEN DONE
-Reply with one short paragraph containing:
-- the URL on its own line,
-- the model I picked (ask me if you don't already know — don't infer from disk),
-- the editable on-disk paths (./config/openclaw.json, ./openclaw-workspace/skills/, ./openclaw-workspace/agents/),
-- this verbatim reminder:
-      "Run `docker compose down` from ~/openclaw when not actively using it. The gateway has an embedded agent that calls the LLM every 30 min while up — leaving it idle for days will burn your budget on a real key."
+Reply with one short paragraph containing the URL on its own line, the model I picked (ask me if you don't already know — don't infer from disk), and the editable on-disk paths: ./config/openclaw.json, ./openclaw-workspace/skills/, ./openclaw-workspace/agents/.
 ````
 
 ## What lives where
