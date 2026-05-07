@@ -54,6 +54,81 @@ docker compose run --rm openclaw-cli devices list
 docker compose run --rm openclaw-cli devices approve <request-id>
 ```
 
+## Setup via an AI agent
+
+If you would rather have an agent (Claude Code, Cursor, Claude Desktop with
+shell access, etc.) drive the install for you, paste the prompt below into
+it. The agent must be able to run shell commands; it will pause and ask
+you for the API key when the wizard prompts for one.
+
+### What you need first
+
+| Requirement                           | Why                                                                  | How to verify                          |
+| ------------------------------------- | -------------------------------------------------------------------- | -------------------------------------- |
+| Docker Desktop, running               | Container runtime + image build                                      | `docker info` returns a daemon block   |
+| Git                                   | Cloning this repo                                                    | `git --version`                        |
+| An AI agent that can run shell        | Claude Code, Cursor (with terminal), Claude Desktop with shell, etc. | —                                      |
+| LLM provider API key                  | OpenClaw routes to it                                                | OpenAI / Anthropic recommended         |
+| **A budget cap on that key**          | Hard floor against runaway loops. Required for unattended use.       | OpenAI: Project → Limits → Budget      |
+| ~5 GB free disk                       | Derived Docker image                                                 | —                                      |
+
+### The prompt
+
+Paste this verbatim into your AI agent and send. Replace nothing.
+
+````markdown
+You are setting up OpenClaw locally for me on this machine, using a pre-built Docker bootstrap repo. Follow the steps below in order. Do not improvise. Ask me whenever a step needs input I have not given.
+
+REPO
+https://github.com/aoterolorenzo/openclaw-docker-bootstrap
+
+WHAT TO DO
+
+1. Verify Docker is running:
+   - Run `docker info`. If it errors, stop and tell me to start Docker Desktop, then wait for me to confirm.
+
+2. Clone and enter the repo somewhere sensible (default to `~/openclaw` unless I say otherwise):
+       git clone https://github.com/aoterolorenzo/openclaw-docker-bootstrap.git ~/openclaw
+       cd ~/openclaw
+
+3. Run `./setup.sh`. The script is interactive. When the OpenClaw onboarding wizard prompts you, handle it as follows:
+   - "Provider" / "Choose a model provider": ask me which LLM provider I have an API key for (OpenAI / Anthropic / Gemini / etc.) and pass that through.
+   - "API key": ask me to paste it. Do NOT echo, log, or save the key anywhere outside the wizard prompt. Do not include it in your replies to me.
+   - "Default model" / "Primary model": choose a low-cost tier — `openai/gpt-5.4-mini`, `anthropic/claude-haiku-*`, `gemini/*-flash`, or the equivalent. Do NOT pick `gpt-5.5`, `claude-opus`, `gpt-5.5-pro`, or anything in the flagship tier. The repo's default is `gpt-5.5`, which combined with an upstream bug (an embedded heartbeat agent that fires every 30 min regardless of `HEARTBEAT.md` being empty) has been observed burning ~$28 in 5 days of idle running.
+   - "Configure skills now?": Yes. The Dockerfile in this repo pre-installs the deps the upstream Linux skills installer expects from Homebrew (`tmux`, `ffmpeg`, `uv`, `mcporter`, `clawhub`, `@steipete/summarize`) plus a brew shim, so the wizard succeeds end-to-end on Linux/Docker despite known upstream bugs (openclaw issues #57555, #73955, #69002).
+   - "Hatch in Terminal" / "Start TUI" / "Wake up, my friend!" / any prompt to launch an agent session at the end of the wizard: choose **SKIP** / **No**. That step persists a session that the embedded scheduler then fires every 30 min — same root cause as the budget burn above.
+   - Anything else not listed: ask me.
+
+4. After `./setup.sh` finishes, it prints a banner with a URL of the form:
+       http://127.0.0.1:18789/#token=<token>
+   Show me that exact URL on its own line.
+
+5. Tell me to open it in my browser. If I report `device pairing required (requestId: <id>)`, run:
+       docker compose run --rm openclaw-cli devices list
+       docker compose run --rm openclaw-cli devices approve <id>
+   Then tell me to refresh the browser.
+
+6. Once it works, report:
+   - the URL with the token,
+   - the model that was selected,
+   - the on-disk paths I can edit with any editor:
+       ./config/openclaw.json          main gateway config
+       ./openclaw-workspace/skills/    installed skills (markdown manifests, editable)
+       ./openclaw-workspace/agents/    agent identity, memory, transcripts
+   - this exact reminder, verbatim:
+       "Run `docker compose down` from ~/openclaw when you're not actively using OpenClaw. The gateway runs an embedded agent that calls the LLM every 30 minutes while it is up — leaving it idle for days will burn your API budget on a real key."
+
+CONSTRAINTS
+- Do not modify `docker-compose.yml`, `docker-compose.override.yml`, `Dockerfile`, or `setup.sh`. They are upstream-aligned; the override and Dockerfile carry deliberate fixes.
+- Do not commit anything to git. The repo's `.gitignore` already excludes `.env`, `config/`, and `openclaw-workspace/`; do not override it.
+- Do not run `openclaw doctor --fix --force`, `--generate-gateway-token`, or any aggressive repair flag without asking me first.
+- If any step fails, paste the verbatim error and ask me before retrying. Do not loop on a failing command.
+- If the wizard appears to hang at "Wake up, my friend!" with `LLM request failed: network connection error`, that is the known transient DNS / health-not-ready issue — wait 60 seconds and retry once. If it persists, stop and tell me.
+
+WHEN DONE
+Reply with a single short paragraph: URL, model, the four editable paths, and the `docker compose down` reminder. Nothing else.
+````
+
 ## What lives where
 
 After `setup.sh` finishes, your project directory looks like:
