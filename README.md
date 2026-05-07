@@ -127,7 +127,8 @@ PHASE 1 — your turn (non-interactive prep)
        Then in that terminal, run:
    
            cd ~/openclaw
-           docker compose run --rm openclaw-cli onboard --mode local --no-install-daemon
+           docker compose run --rm --no-deps --entrypoint node openclaw-gateway \
+               dist/index.js onboard --mode local --no-install-daemon
    
        Wizard guidance:
        - Provider: pick the one you have an API key for.

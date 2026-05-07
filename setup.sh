@@ -38,9 +38,18 @@ step "Building derived image (first run ~3 min, cached after)"
 docker compose build openclaw-gateway
 
 # 5. Onboarding wizard (interactive: provider, API key, skills).
+# Run via the gateway service with --no-deps and --entrypoint node so the
+# gateway daemon does NOT start as a depends_on side-effect of using
+# openclaw-cli. With the daemon running on empty config it exits with
+# "Missing config" and `restart: unless-stopped` loops it; because the cli
+# shares the gateway's network namespace via network_mode, every restart
+# disrupts in-flight DNS lookups inside the wizard (EAI_AGAIN on npm).
+# This is the pattern documented in upstream docs/install/docker.md
+# ("Manual flow") for setup-time operations.
 step "Running onboarding wizard"
 echo "(You'll be prompted for an LLM provider and API key.)"
-docker compose run --rm openclaw-cli onboard --mode local --no-install-daemon
+docker compose run --rm --no-deps --entrypoint node openclaw-gateway \
+    dist/index.js onboard --mode local --no-install-daemon
 
 # 6. Doctor --fix to install bundled plugin runtime deps.
 step "Installing bundled plugin runtime deps (doctor --fix)"
