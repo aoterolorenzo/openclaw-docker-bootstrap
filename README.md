@@ -138,11 +138,20 @@ PHASE 1 — your turn (non-interactive prep)
          like "mini", "haiku", "flash", "nano", "lite", "8b" usually
          mean cheap. Avoid "opus", "pro", "flagship", "ultra", or
          anything sold as "most capable".
-       - Configure skills now?: Yes. The Dockerfile pre-installs every
-         dep the upstream Linux skills installer expects from Homebrew
-         (tmux, ffmpeg, uv, mcporter, clawhub, @steipete/summarize) plus
-         a brew shim — known upstream bugs are openclaw#57555, #73955,
-         #69002.
+       - Configure skills now?: Yes.
+       - "Install missing skill dependencies" (multi-select): leave ALL
+         the defaults checked — `clawhub`, `mcporter`, `nano-pdf`,
+         `summarize`, `tmux`, `video-frames`. The Docker image already
+         carries everything they need (apt: tmux, ffmpeg, ca-certs; uv
+         via Astral; npm globals: mcporter, clawhub, @steipete/summarize;
+         plus a brew shim that satisfies the brew-centric upstream
+         installer — bugs openclaw#57555, #73955, #69002).
+       - "Set <PROVIDER>_API_KEY for <skill>?" prompts (goplaces, notion,
+         openai-whisper-api, sag/elevenlabs, etc.): say YES only if you
+         actually have a key for that service. Otherwise say NO — you
+         can wire any of them up later by editing
+         `./config/openclaw.json` or running the corresponding
+         `openclaw auth ...` command.
        - Anything else the wizard asks: your call.
    
        When the wizard prints "Onboarding complete" (and you've exited
